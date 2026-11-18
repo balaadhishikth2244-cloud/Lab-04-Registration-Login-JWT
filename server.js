@@ -6,30 +6,35 @@ const jwt = require("jsonwebtoken");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const JWT_SECRET = process.env.JWT_SECRET || "lab4_secret_key";
+
 // Middleware
 app.use(express.json());
-
-// JWT Secret
-const JWT_SECRET = process.env.JWT_SECRET || "lab4_secret_key";
 
 // Temporary user storage
 const users = [];
 
-// Home Route
+// HOME ROUTE
 app.get("/", (req, res) => {
-    res.json({
+    res.status(200).json({
         message: "Lab 4 Server is running: Registration, Login and JWT API"
     });
 });
 
-// Registration API
+// REGISTER ROUTE
 app.post("/register", async (req, res) => {
     try {
         const { username, name, password } = req.body;
 
         // Validate input
-        if (!username || !name || !password ||
-            !username.trim() || !name.trim() || !password.trim()) {
+        if (
+            typeof username !== "string" ||
+            typeof name !== "string" ||
+            typeof password !== "string" ||
+            !username.trim() ||
+            !name.trim() ||
+            !password.trim()
+        ) {
             return res.status(400).json({
                 message: "Username, name and password are required"
             });
@@ -37,7 +42,7 @@ app.post("/register", async (req, res) => {
 
         // Check duplicate username
         const existingUser = users.find(
-            user => user.username === username
+            user => user.username === username.trim()
         );
 
         if (existingUser) {
@@ -49,10 +54,10 @@ app.post("/register", async (req, res) => {
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Create new user
+        // Save user
         const newUser = {
-            username,
-            name,
+            username: username.trim(),
+            name: name.trim(),
             password: hashedPassword
         };
 
@@ -67,19 +72,26 @@ app.post("/register", async (req, res) => {
         });
 
     } catch (error) {
+        console.error("Registration error:", error);
+
         return res.status(500).json({
             message: "Internal server error"
         });
     }
 });
 
-// Login API
+// LOGIN ROUTE
 app.post("/login", async (req, res) => {
     try {
         const { username, password } = req.body;
 
         // Validate input
-        if (!username || !password) {
+        if (
+            typeof username !== "string" ||
+            typeof password !== "string" ||
+            !username.trim() ||
+            !password
+        ) {
             return res.status(400).json({
                 message: "Username and password are required"
             });
@@ -87,7 +99,7 @@ app.post("/login", async (req, res) => {
 
         // Find user
         const user = users.find(
-            user => user.username === username
+            user => user.username === username.trim()
         );
 
         if (!user) {
@@ -96,7 +108,7 @@ app.post("/login", async (req, res) => {
             });
         }
 
-        // Compare password
+        // Verify password
         const isMatch = await bcrypt.compare(
             password,
             user.password
@@ -108,11 +120,11 @@ app.post("/login", async (req, res) => {
             });
         }
 
-        // Generate JWT token
+        // Generate JWT
         const token = jwt.sign(
             { username: user.username },
             JWT_SECRET,
-            { expiresIn: "1 hour" }
+            { expiresIn: "1h" }
         );
 
         return res.status(200).json({
@@ -120,13 +132,22 @@ app.post("/login", async (req, res) => {
         });
 
     } catch (error) {
+        console.error("Login error:", error);
+
         return res.status(500).json({
             message: "Internal server error"
         });
     }
 });
 
-// Start Server
+// Handle unknown routes
+app.use((req, res) => {
+    res.status(404).json({
+        message: "Route not found"
+    });
+});
+
+// Start server
 app.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
 });
