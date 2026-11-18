@@ -1,33 +1,41 @@
+
 const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const users = require("./users");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// JWT secret (for this lab only)
-const JWT_SECRET = "lab4_jwt_secret_key";
-
+// Middleware
 app.use(express.json());
 
-// Home route
+// JWT Secret
+const JWT_SECRET = process.env.JWT_SECRET || "lab4_secret_key";
+
+// Temporary user storage
+const users = [];
+
+// Home Route
 app.get("/", (req, res) => {
-    res.send("Lab 4 Registration and Login API is running");
+    res.json({
+        message: "Lab 4 Server is running: Registration, Login and JWT API"
+    });
 });
 
-// Register API
+// Registration API
 app.post("/register", async (req, res) => {
     try {
         const { username, name, password } = req.body;
 
-        if (!username || !name || !password) {
+        // Validate input
+        if (!username || !name || !password ||
+            !username.trim() || !name.trim() || !password.trim()) {
             return res.status(400).json({
                 message: "Username, name and password are required"
             });
         }
 
-        // Check if username already exists
+        // Check duplicate username
         const existingUser = users.find(
             user => user.username === username
         );
@@ -41,7 +49,7 @@ app.post("/register", async (req, res) => {
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Save user
+        // Create new user
         const newUser = {
             username,
             name,
@@ -59,8 +67,8 @@ app.post("/register", async (req, res) => {
         });
 
     } catch (error) {
-        res.status(500).json({
-            message: "Server error"
+        return res.status(500).json({
+            message: "Internal server error"
         });
     }
 });
@@ -70,6 +78,7 @@ app.post("/login", async (req, res) => {
     try {
         const { username, password } = req.body;
 
+        // Validate input
         if (!username || !password) {
             return res.status(400).json({
                 message: "Username and password are required"
@@ -88,36 +97,36 @@ app.post("/login", async (req, res) => {
         }
 
         // Compare password
-        const isPasswordCorrect = await bcrypt.compare(
+        const isMatch = await bcrypt.compare(
             password,
             user.password
         );
 
-        if (!isPasswordCorrect) {
+        if (!isMatch) {
             return res.status(400).json({
-                message: "Wrong password"
+                message: "Invalid password"
             });
         }
 
-        // Create JWT
-        const jwtToken = jwt.sign(
+        // Generate JWT token
+        const token = jwt.sign(
             { username: user.username },
             JWT_SECRET,
-            { expiresIn: "1h" }
+            { expiresIn: "1 hour" }
         );
 
         return res.status(200).json({
-            jwt_token: jwtToken
+            jwt_token: token
         });
 
     } catch (error) {
-        res.status(500).json({
-            message: "Server error"
+        return res.status(500).json({
+            message: "Internal server error"
         });
     }
 });
 
-// Start server
+// Start Server
 app.listen(PORT, () => {
     console.log(`Server running at http://localhost:${PORT}`);
 });
